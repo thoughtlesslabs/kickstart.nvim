@@ -1,5 +1,4 @@
 --[[
-
 =====================================================================
 ==================== READ THIS BEFORE CONTINUING ====================
 =====================================================================
@@ -36,7 +35,19 @@ What is Kickstart?
     a guide. One possible example which will only take 10-15 minutes:
       - https://learnxinyminutes.com/docs/lua/
 
-    After understanding a bit more about Lua, you can use `:help lua-guide` as a
+    After understanding a bit more about Lua, you can use `:help lua-guide` as aconfig = {
+  shortcut = {
+    -- action can be a function type
+    { desc = string, group = 'highlight group', key = 'shortcut key', action = 'action when you press key' },
+  },
+  packages = { enable = true }, -- show how many plugins neovim loaded
+  -- limit how many projects list, action when you press key or enter it will run this action.
+  -- action can be a functino type, e.g.
+  -- action = func(path) vim.cmd('Telescope find_files cwd=' .. path) end
+  project = { enable = true, limit = 8, icon = 'your icon', label = '', action = 'Telescope find_files cwd=' },
+  mru = { limit = 10, icon = 'your icon', label = '', cwd_only = false },
+  footer = {}, -- footer
+}
     reference for how Neovim integrates Lua.
     - :help lua-guide
     - (or HTML version): https://neovim.io/doc/user/lua-guide.html
@@ -46,7 +57,7 @@ Kickstart Guide:
   TODO: The very first thing you should do is to run the command `:Tutor` in Neovim.
 
     If you don't know what this means, type the following:
-      - <escape key>
+ - <escape key>
       - :
       - Tutor
       - <enter key>
@@ -84,14 +95,18 @@ I hope you enjoy your Neovim journey,
 P.S. You can delete this when you're done too. It's your config now! :)
 --]]
 
--- Set <space> as the leader key
+--: Set <space> as the leader key
 -- See `:help mapleader`
 --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
 vim.g.mapleader = ' '
 vim.g.maplocalleader = ' '
 
+vim.opt.shell = '/opt/homebrew/bin/fish'
+
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = false
+vim.g.have_nerd_font = true
+
+--vim.cmd 'cd ~/Documents/Coding/'
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -102,7 +117,7 @@ vim.g.have_nerd_font = false
 vim.o.number = true
 -- You can also add relative line numbers, to help with jumping.
 --  Experiment for yourself to see if you like it!
--- vim.o.relativenumber = true
+vim.opt.relativenumber = true
 
 -- Enable mouse mode, can be useful for resizing splits for example!
 vim.o.mouse = 'a'
@@ -159,7 +174,7 @@ vim.o.inccommand = 'split'
 vim.o.cursorline = true
 
 -- Minimal number of screen lines to keep above and below the cursor.
-vim.o.scrolloff = 10
+vim.opt.scrolloff = 20
 
 -- if performing an operation that would fail due to unsaved changes in the buffer (like `:q`),
 -- instead raise a dialog asking if you wish to save the current file(s)
@@ -168,9 +183,8 @@ vim.o.confirm = true
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
-
--- Clear highlights on search when pressing <Esc> in normal mode
---  See `:help hlsearch`
+-- Set highlight on search, but clear on pressing <Esc> in normal mode
+vim.opt.hlsearch = true
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
 
 -- Diagnostic keymaps
@@ -205,6 +219,14 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 -- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
 -- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
 
+-- disable netrw at the very start of your init.lua
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
+-- optionally enable 24-bit colour
+vim.opt.termguicolors = true
+
+-- vim.g.loaded_python3_provider = 0
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 
@@ -247,8 +269,129 @@ rtp:prepend(lazypath)
 -- NOTE: Here is where you install your plugins.
 require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
-  'NMAC427/guess-indent.nvim', -- Detect tabstop and shiftwidth automatically
+  'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
+  'tpope/vim-fugitive',
+  'skwee357/nvim-prose',
+  -- Venv-Selector
+  'NMAC427/guess-indent.nvim',
 
+  {
+    'linux-cultist/venv-selector.nvim',
+    dependencies = {
+      'neovim/nvim-lspconfig',
+      'mfussenegger/nvim-dap',
+      'mfussenegger/nvim-dap-python', -- Optional
+      { 'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' } },
+    },
+    lazy = false,
+    config = function()
+      local venv_selector = require 'venv-selector'
+
+      -- Setup venv-selector
+      venv_selector.setup {
+        auto_refresh = true, -- Automatically refresh the venv list
+      }
+
+      -- Autocommand to handle VenvActivated event
+
+      vim.api.nvim_create_autocmd('User', {
+        pattern = 'VenvActivated',
+        callback = function(event)
+          local venv_path = event.data.venv
+          if venv_path then
+            -- Dynamically set Neovim's Python 3 provider
+            vim.g.python3_host_prog = venv_path .. '/bin/python'
+
+            -- Update PATH for shell commands
+            vim.fn.setenv('PATH', venv_path .. '/bin:' .. vim.fn.getenv 'PATH')
+
+            -- Set $VIRTUAL_ENV
+            vim.fn.setenv('VIRTUAL_ENV', venv_path)
+
+            -- Debugging output
+            print('Activated virtualenv: ' .. venv_path)
+            print('g:python3_host_prog set to: ' .. vim.g.python3_host_prog)
+          else
+            print 'No virtual environment selected.'
+          end
+        end,
+      })
+    end,
+    keys = {
+      { ',v', '<cmd>VenvSelect<cr>' },
+    },
+  },
+
+  -- Add markdown preview capabilities
+  {
+    'ellisonleao/glow.nvim',
+    config = function()
+      require('glow').setup {
+        style = 'dark',
+        height = 200,
+        width = 400,
+        height_ratio = 0.9,
+        width_ratio = 0.9,
+      }
+    end,
+    cmd = 'Glow',
+  },
+  {
+    'nvimdev/dashboard-nvim',
+    event = 'VimEnter',
+    config = function()
+      require('dashboard').setup {
+        theme = 'hyper',
+        config = {
+          -- project = { enable = false },
+          week_header = {
+            enable = true,
+          },
+          center = {},
+          footer = {
+            '',
+            '🤘 neovim by the way',
+          },
+        },
+        shortcut_type = 'number',
+      }
+    end,
+    dependencies = { { 'nvim-tree/nvim-web-devicons' } },
+  },
+
+  -- Add Ollama LLM plugin
+  {
+    'nomnivore/ollama.nvim',
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+    },
+
+    -- All the user commands added by the plugin
+    cmd = { 'Ollama', 'OllamaModel', 'OllamaServe', 'OllamaServeStop' },
+
+    keys = {
+      -- Sample keybind for prompt menu. Note that the <c-u> is important for selections to work properly.
+      {
+        '<leader>oo',
+        ":<c-u>lua require('ollama').prompt()<cr>",
+        desc = 'ollama prompt',
+        mode = { 'n', 'v' },
+      },
+
+      -- Sample keybind for direct prompting. Note that the <c-u> is important for selections to work properly.
+      {
+        '<leader>oG',
+        ":<c-u>lua require('ollama').prompt('Generate_Code')<cr>",
+        desc = 'ollama Generate Code',
+        mode = { 'n', 'v' },
+      },
+    },
+
+    ---@type Ollama.Config
+    opts = {
+      model = 'llama3.1', -- your configuration overrides
+    },
+  },
   -- NOTE: Plugins can also be added by using a table,
   -- with the first argument being the link and the following
   -- keys can be used to configure plugin behavior/loading/etc.
@@ -281,6 +424,7 @@ require('lazy').setup({
         topdelete = { text = '‾' },
         changedelete = { text = '~' },
       },
+      current_line_blame = true,
     },
   },
 
@@ -365,7 +509,7 @@ require('lazy').setup({
       'nvim-lua/plenary.nvim',
       { -- If encountering errors, see telescope-fzf-native README for installation instructions
         'nvim-telescope/telescope-fzf-native.nvim',
-
+        'debugloop/telescope-undo.nvim',
         -- `build` is used to run some command when the plugin is installed/updated.
         -- This is only run then, not every time Neovim starts up.
         build = 'make',
@@ -423,7 +567,9 @@ require('lazy').setup({
       -- Enable Telescope extensions if they are installed
       pcall(require('telescope').load_extension, 'fzf')
       pcall(require('telescope').load_extension, 'ui-select')
+      pcall(require('telescope').load_extension, 'undotree')
 
+      vim.keymap.set('n', '<leader>u', '<cmd>Telescope undo<cr>')
       -- See `:help telescope.builtin`
       local builtin = require 'telescope.builtin'
       vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
@@ -671,10 +817,11 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
-        -- gopls = {},
-        -- pyright = {},
-        -- rust_analyzer = {},
+        marksman = {},
+        clangd = {},
+        gopls = {},
+        pyright = {},
+        rust_analyzer = {},
         -- ... etc. See `:help lspconfig-all` for a list of all the pre-configured LSPs
         --
         -- Some languages (like typescript) have entire language plugins that can be useful:
@@ -690,11 +837,27 @@ require('lazy').setup({
           -- capabilities = {},
           settings = {
             Lua = {
+              runtime = {
+                -- Tell the language server which version of Lua you're using
+                version = 'LuaJIT',
+              },
+              diagnostics = {
+                -- Get the language server to recognize the `vim` global
+                globals = { 'vim' },
+                -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
+                -- disable = { 'missing-fields' },
+              },
+              workspace = {
+                -- Make the server aware of Neovim runtime files
+                library = vim.api.nvim_get_runtime_file('', true),
+                checkThirdParty = false,
+              },
+              telemetry = {
+                enable = false,
+              },
               completion = {
                 callSnippet = 'Replace',
               },
-              -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
-              -- diagnostics = { disable = { 'missing-fields' } },
             },
           },
         },
@@ -716,6 +879,7 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'lua-language-server', -- Ensure lua-language-server is installed
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -796,15 +960,15 @@ require('lazy').setup({
           return 'make install_jsregexp'
         end)(),
         dependencies = {
-          -- `friendly-snippets` contains a variety of premade snippets.
+          --   `friendly-snippets` contains a variety of premade snippets.
           --    See the README about individual language/framework/plugin snippets:
           --    https://github.com/rafamadriz/friendly-snippets
-          -- {
-          --   'rafamadriz/friendly-snippets',
-          --   config = function()
-          --     require('luasnip.loaders.from_vscode').lazy_load()
-          --   end,
-          -- },
+          {
+            'rafamadriz/friendly-snippets',
+            config = function()
+              require('luasnip.loaders.from_vscode').lazy_load()
+            end,
+          },
         },
         opts = {},
       },
@@ -973,18 +1137,19 @@ require('lazy').setup({
   --  Here are some example plugins that I've included in the Kickstart repository.
   --  Uncomment any of the lines below to enable them (you will need to restart nvim).
   --
-  -- require 'kickstart.plugins.debug',
-  -- require 'kickstart.plugins.indent_line',
-  -- require 'kickstart.plugins.lint',
-  -- require 'kickstart.plugins.autopairs',
-  -- require 'kickstart.plugins.neo-tree',
-  -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+  require 'kickstart.plugins.debug',
+  require 'kickstart.plugins.indent_line',
+  require 'kickstart.plugins.lint',
+  require 'kickstart.plugins.autopairs',
+  require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
-  -- { import = 'custom.plugins' },
+  -- Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
+  { import = 'custom.plugins' },
   --
   -- For additional information with loading, sourcing and examples see `:help lazy.nvim-🔌-plugin-spec`
   -- Or use telescope!
