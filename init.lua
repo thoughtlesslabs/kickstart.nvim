@@ -171,7 +171,6 @@ vim.opt.scrolloff = 20
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
-
 -- Set highlight on search, but clear on pressing <Esc> in normal mode
 vim.opt.hlsearch = true
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
@@ -251,6 +250,7 @@ require('lazy').setup({
   -- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
   'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically
   'tpope/vim-fugitive',
+  'skwee357/nvim-prose',
   -- Venv-Selector
 
   {
@@ -262,7 +262,6 @@ require('lazy').setup({
       { 'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' } },
     },
     lazy = false,
-    branch = 'regexp', -- Use this for the new version
     config = function()
       local venv_selector = require 'venv-selector'
 
@@ -322,6 +321,7 @@ require('lazy').setup({
       require('dashboard').setup {
         theme = 'hyper',
         config = {
+          -- project = { enable = false },
           week_header = {
             enable = true,
           },
@@ -701,11 +701,27 @@ require('lazy').setup({
           -- capabilities = {},
           settings = {
             Lua = {
+              runtime = {
+                -- Tell the language server which version of Lua you're using
+                version = 'LuaJIT',
+              },
+              diagnostics = {
+                -- Get the language server to recognize the `vim` global
+                globals = { 'vim' },
+                -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
+                -- disable = { 'missing-fields' },
+              },
+              workspace = {
+                -- Make the server aware of Neovim runtime files
+                library = vim.api.nvim_get_runtime_file('', true),
+                checkThirdParty = false,
+              },
+              telemetry = {
+                enable = false,
+              },
               completion = {
                 callSnippet = 'Replace',
               },
-              -- You can toggle below to ignore Lua_LS's noisy `missing-fields` warnings
-              -- diagnostics = { disable = { 'missing-fields' } },
             },
           },
         },
@@ -724,6 +740,7 @@ require('lazy').setup({
       local ensure_installed = vim.tbl_keys(servers or {})
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
+        'lua-language-server', -- Ensure lua-language-server is installed
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -996,7 +1013,7 @@ require('lazy').setup({
   --
   --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
   --    For additional information, see `:help lazy.nvim-lazy.nvim-structuring-your-plugins`
-  --  { import = 'custom.plugins' },
+  { import = 'custom.plugins' },
 }, {
   ui = {
     -- If you are using a Nerd Font: set icons to an empty table which will use the
